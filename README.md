@@ -20,50 +20,40 @@
 Библиотека **Python.h** позволяет связать наш модуль с питоном. В ней используются методы и макросы, которые прдоставляют доступ к интерпретаторам из Python. А библеотека **math.h**, которая нужна для выполнения простых математических операций, используется у нас для команды fabs, которая применяется для данных типа float (команда abs в СИ для данных Python не применяется)
 
 ### ***Умножение матрицы на скаляр***
-#include <Python.h>
-
-static PyObject *py_plus(PyObject *self, PyObject *args){
-  double x, y, result;
-
-  if(!PyArg_ParseTuple(args,"dd", &x, &y))
+```C
+static PyObject* scalar_multiplication(PyObject* self, PyObject* args) {
+  PyObject *listObj;
+  double c;
+  if( !PyArg_ParseTuple( args, "Od", &listObj, &c) ) {
+    PyErr_SetString(PyExc_TypeError, "Bad arguments !!!");
     return NULL;
+  }
+
+  Py_ssize_t lengthi = PyList_Size(listObj);
+  PyObject* result = PyList_New(lengthi);  
+  long i,j;
+  Py_ssize_t lengthjpr = -1;
+
+  for(i = 0; i < lengthi; i++){    
+    PyObject* tempi = PyList_GetItem(listObj, i);
+    Py_ssize_t lengthj = PyList_Size(tempi);
+    if( lengthjpr == -1 ) {
+      lengthjpr = lengthj;
+    }
+    else if ( lengthjpr != lengthj ){
+      PyErr_SetString(PyExc_TypeError, "Invalid matrix !!!");
+      return NULL;
+    }
+    PyObject* row = PyList_New(lengthj);
+    for (j = 0; j <lengthj; j++){
+       PyObject* tempj = PyList_GetItem(tempi, j);
+       double elem = PyFloat_AsDouble(tempj);
+       PyList_SetItem(row, j, PyFloat_FromDouble(c*elem)); 
+    }
+    PyList_SetItem(result, i, row);    
+  }  
   
-  result = x + y;
-  
-  return Py_BuildValue("d", result);
+  return result;
 }
-
-/* Описывает методы модуля */
-static PyMethodDef ownmod_methods[] = {
-{ 
-    "plus",          // название функции внутри python
-     py_plus,        // функция C
-     METH_VARARGS,   // макрос, поясняющий, что функция у нас с аргументами
-     "plus function" // документация для функции внутри python
-},
-{ NULL, NULL, 0, NULL } 
-// так называемый sentiel. Сколько бы элементов структуры 
-// у вас не было, этот нулевой элемент должен быть всегда, и при этом быть последним
-};
-
-/* Описываем наш модуль */
-static PyModuleDef simple_module = {    
-    PyModuleDef_HEAD_INIT,   // обязательный макрос
-    "my_plus",               // my_plus.__name__
-    "amazing documentation", // my_plus.__doc__
-    -1,
-    ownmod_methods           // сюда передаем методы модуля
-};
-
-// в названии функции обязательно должен быть префикс PyInit
-PyMODINIT_FUNC PyInit_my_plus(void) {
-      PyObject* m;
-      // создаем модуль
-      m = PyModule_Create(&simple_module);
-      // если все корректно, то эта проверка не проходит
-      if (m == NULL)
-          return NULL;
-      return m;
-}
-
+```
 
