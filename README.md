@@ -169,3 +169,325 @@ static PyObject* vector_multiplication(PyObject* self, PyObject* args) {
   return result;
 }
 ```
+
+### ***Транспонирование***
+
+```C
+
+static PyObject* transposition(PyObject* self, PyObject* args) {
+  PyObject *listObj;  
+  if( !PyArg_ParseTuple( args, "O", &listObj) ) {
+    PyErr_SetString(PyExc_TypeError, "Bad arguments !!!");
+    return NULL;
+  }
+
+  Py_ssize_t lengthi = PyList_Size(listObj);
+  PyObject* result = PyList_New(PyList_Size(PyList_GetItem(listObj, 0)));  
+  long i,j;
+  Py_ssize_t lengthjpr = -1;
+
+  for(i = 0; i < PyList_Size(result); i++){   
+    PyObject* row = PyList_New(lengthi);
+    for (j = 0; j <lengthi; j++){
+       PyObject* tempj = PyList_GetItem(listObj, j);    
+       Py_ssize_t lengthj = PyList_Size(tempj);
+       if( lengthjpr == -1 ) {
+          lengthjpr = lengthj;
+       }
+       else if ( lengthjpr != lengthj ){
+          PyErr_SetString(PyExc_TypeError, "Invalid matrix !!!");
+          return NULL;
+       }
+       PyObject* temp = PyList_GetItem(PyList_GetItem(listObj, j), i);
+       double elem = PyFloat_AsDouble(temp);
+       PyList_SetItem(row, j, PyFloat_FromDouble(elem)); 
+    }
+    PyList_SetItem(result, i, row);    
+  }  
+  
+  return result;
+}
+```
+
+### ***Определитель***
+
+```C
+
+static PyObject* determinant(PyObject* self, PyObject* args) {
+  PyObject *listObj; 
+  if( !PyArg_ParseTuple( args, "O", &listObj) ) {
+    PyErr_SetString(PyExc_TypeError, "Bad arguments !!!");
+    return NULL;
+  }
+
+  Py_ssize_t lengthi = PyList_Size(listObj);
+  Py_ssize_t lengthj = PyList_Size(PyList_GetItem(listObj, 0));
+  if ( lengthi != lengthj ) {
+     PyErr_SetString(PyExc_TypeError, "Not a square matrix !!!");
+     return NULL;
+  }
+
+  PyObject* a = PyList_New(lengthi);
+  long i,j,k;
+  
+  for( i=0; i<lengthi; i++ ) {
+    PyObject* row = PyList_GetItem(listObj, i);
+    if( PyList_Size(row) != lengthi ) {
+      PyErr_SetString(PyExc_ValueError, "Invalid matrix !!!");
+      return NULL;
+    }
+
+    PyObject* r = PyList_New(lengthi);
+    for( j=0; j<lengthi; j++ ) 
+      PyList_SetItem(r, j, PyList_GetItem(row, j));
+
+    PyList_SetItem(a, i, r);
+  }
+
+  double temp1, temp2, temp3, det = 1;
+  const double EPS = 1E-9;
+  
+  for( i=0; i<lengthi; i++ ) {
+    k = i;
+
+    for( j=i+1; j<lengthi; j++ ) {
+      temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, j), i) );
+      temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, k), i) );
+      if( fabs(temp1) > fabs(temp2) ) k = j;
+    }
+
+    temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, k), i) );
+    if( fabs(temp1) < EPS ) {
+	det = 0;
+	break;
+    }
+
+    if( i != k ) {
+      det = -det;
+      for( j=0; j<lengthi; j++ ) {
+        temp1 = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(a, i), j));
+	temp2 = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(a, k), j));
+        PyList_SetItem(PyList_GetItem(a, i), j, PyFloat_FromDouble(temp2));
+        PyList_SetItem(PyList_GetItem(a, k), j, PyFloat_FromDouble(temp1));
+      }
+    }
+
+    temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), i) );
+    det *= temp1;
+
+    for( j=i+1; j<lengthi; j++ ) {
+       temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), j) );
+       PyList_SetItem( PyList_GetItem(a, i), j, PyFloat_FromDouble(temp2/temp1) ); 
+    }
+
+    for( j=0; j<lengthi; j++ ) {
+      temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, j), i) );
+      if( (j != i) && (fabs(temp1) > EPS) ) {
+	 for( k=i+1; k<lengthi; k++ ) {
+	   temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), k) );
+           temp3 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, j), k) );
+           PyList_SetItem( PyList_GetItem(a, j), k, PyFloat_FromDouble(temp3-temp2*temp1) );
+         }
+      }
+    }
+  }
+
+  return PyFloat_FromDouble(det);
+}
+```
+
+
+### ***Умножение матриц***
+
+```C
+
+static PyObject* matrix_multiplication(PyObject* self, PyObject* args) {
+  PyObject *listObj1;
+  PyObject *listObj2;  
+  if( !PyArg_ParseTuple( args, "OO", &listObj1, &listObj2) ) {
+    PyErr_SetString(PyExc_TypeError, "Bad arguments !!!");
+    return NULL;
+  }
+
+  Py_ssize_t lengthst = PyList_Size(PyList_GetItem(listObj1, 0));
+  Py_ssize_t lengthsr = PyList_Size(listObj2);
+  if ( lengthst != lengthsr ){
+     PyErr_SetString(PyExc_ValueError, "Not suitable matrixs for multiplication !!!");
+     return NULL;
+  }  
+
+  Py_ssize_t lengthjpr = PyList_Size(PyList_GetItem(listObj2, 0));
+  Py_ssize_t lengthi = PyList_Size(listObj1);
+  PyObject* result = PyList_New(lengthi);  
+  long i,j,k;
+
+  for(i = 0; i < lengthst; i++) {
+    if( PyList_Size(PyList_GetItem(listObj2, i)) != lengthjpr ) {
+      PyErr_SetString(PyExc_TypeError, "Invalid matrix 2 !!!");
+      return NULL;
+    }
+  }
+    
+  for(i = 0; i < lengthi; i++){ 
+    if( PyList_Size(PyList_GetItem(listObj1, i)) != lengthst ) {
+      PyErr_SetString(PyExc_TypeError, "Invalid matrix 1 !!!");
+      return NULL;
+    }
+       
+    PyObject* row = PyList_New(lengthjpr);     
+    for (j = 0; j < lengthjpr; j++){
+       double sum = 0;     
+       for (k=0; k < lengthst; k++){
+           PyObject* temp1 = PyList_GetItem(PyList_GetItem(listObj1, i), k);
+           PyObject* temp2 = PyList_GetItem(PyList_GetItem(listObj2, k), j);
+           double elem1 = PyFloat_AsDouble(temp1);
+           double elem2 = PyFloat_AsDouble(temp2);
+           sum += elem1*elem2;
+       }
+
+       PyList_SetItem(row, j, PyFloat_FromDouble(sum));       
+    }        
+   
+    PyList_SetItem(result, i, row);       
+  }  
+  
+  return result;
+}
+```
+
+### ***Обратная матрица***
+
+```C
+
+static PyObject* inversion(PyObject* self, PyObject* args) {
+  PyObject *listObj; 
+  if( !PyArg_ParseTuple( args, "O", &listObj) ) {
+    PyErr_SetString(PyExc_TypeError, "Bad arguments !!!");
+    return NULL;
+  }
+
+  Py_ssize_t lengthi = PyList_Size(listObj);
+  Py_ssize_t lengthj = PyList_Size(PyList_GetItem(listObj, 0));
+  if ( lengthi != lengthj ) {
+     PyErr_SetString(PyExc_TypeError, "Not a square matrix !!!");
+     return NULL;
+  }
+
+  const double EPS = 1E-9;
+  double det = 1;
+  
+  PyObject* a = PyList_New(lengthi);
+  long i,j,k;
+  
+  for( i=0; i<lengthi; i++ ) {
+    PyObject* row = PyList_GetItem(listObj, i);
+    if( PyList_Size(row) != lengthi ) {
+      PyErr_SetString(PyExc_ValueError, "Invalid matrix !!!");
+      return NULL;
+    }
+
+    PyObject* r = PyList_New(lengthi);
+    for( j=0; j<lengthi; j++ ) 
+      PyList_SetItem(r, j, PyList_GetItem(row, j));
+
+    PyList_SetItem(a, i, r);
+  }
+
+
+  PyObject* e = PyList_New(lengthi);
+  for( i=0; i<lengthi; i++ ) {
+     PyObject* r = PyList_New(lengthi);
+     for( j=0; j<lengthi; j++ ) 
+       if( i == j ) {
+          PyList_SetItem(r, j, PyFloat_FromDouble(1));
+       } else {
+          PyList_SetItem(r, j, PyFloat_FromDouble(0));
+       }
+     PyList_SetItem(e, i, r);
+  }
+
+
+  double temp1, temp2, temp3;
+
+  for( i=0; i<lengthi; i++ ) {
+    k = i;
+
+    for( j=i+1; j<lengthi; j++ ) {
+      temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, j), i) );
+      temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, k), i) );
+      if( fabs(temp1) > fabs(temp2) ) k = j;
+    }
+
+    temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, k), i) );
+    if( fabs(temp1) < EPS ) {
+      PyErr_SetString(PyExc_ValueError, "Determinant = 0 !!!");
+      return NULL;
+    }
+
+    if( i != k ) {
+      det = -det;
+      for( j=0; j<lengthi; j++ ) {
+        temp1 = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(a, i), j));
+	temp2 = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(a, k), j));
+        PyList_SetItem(PyList_GetItem(a, i), j, PyFloat_FromDouble(temp2));
+        PyList_SetItem(PyList_GetItem(a, k), j, PyFloat_FromDouble(temp1));
+
+        temp1 = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(e, i), j));
+	temp2 = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(e, k), j));
+        PyList_SetItem(PyList_GetItem(e, i), j, PyFloat_FromDouble(temp2));
+        PyList_SetItem(PyList_GetItem(e, k), j, PyFloat_FromDouble(temp1));
+      }
+    }
+
+    temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), i) );
+    det *= temp1;
+
+    for( j=i; j<lengthi; j++ ) {
+       temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), j) );
+       PyList_SetItem( PyList_GetItem(a, i), j, PyFloat_FromDouble(temp2/temp1) ); 
+    }
+
+    for( j=0; j<lengthi; j++ ) {
+       temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, i), j) );
+       PyList_SetItem( PyList_GetItem(e, i), j, PyFloat_FromDouble(temp2/temp1) ); 
+    }
+
+    for( j=i+1; j<lengthi; j++ ) {
+      temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, j), i) );
+      if( fabs(temp1) > EPS ) {
+	 for( k=0; k<lengthi; k++ ) {
+	   temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), k) );
+           temp3 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, j), k) );
+           PyList_SetItem( PyList_GetItem(a, j), k, PyFloat_FromDouble(temp3-temp2*temp1) );
+
+	   temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, i), k) );
+           temp3 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, j), k) );
+           PyList_SetItem( PyList_GetItem(e, j), k, PyFloat_FromDouble(temp3-temp2*temp1) );
+         }
+      }
+    }
+  }
+
+  for(i = lengthi-1; i > 0; i--) {
+     for(int k = 0; k < i; k++) {
+        temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, k), i) );
+        if (fabs(temp1) > EPS) {
+              for (j = i-1; j < lengthi; j++) {
+	         temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), j) );
+                 temp3 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, k), j) );
+                 PyList_SetItem( PyList_GetItem(a, k), j, PyFloat_FromDouble(temp3-temp2*temp1) );
+              }
+
+              for (int j = 0; j < lengthi; j++){
+	         temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, i), j) );
+                 temp3 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, k), j) );
+                 PyList_SetItem( PyList_GetItem(e, k), j, PyFloat_FromDouble(temp3-temp2*temp1) );
+              }
+        }
+     }
+  }
+
+
+   return e;
+}
+```
