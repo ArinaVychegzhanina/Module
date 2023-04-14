@@ -81,7 +81,7 @@ static PyObject* scalar_multiplication(PyObject* self, PyObject* args) {
 ```
 
 ### ***Сложение и вычитание матриц***
-
+Мы написали вспомогательную функцию, в которой различаем 1 и -1, где c = 1 - это сложение, а c = -1 - вычитание. Здесь нет  **PyObject* self**, что означает, что эта функция исключительно вспомогательная и как функция модуля использоваться не будет. На вход подается два объекта - две матрицы: **listObj1** и **listObj2**. Проверяем, что они соответствуют типу "OO" - то есть обе являются **PyObject**. 
 ```C
 static PyObject* plusminus(PyObject* args, double c) {
   PyObject *listObj1;
@@ -91,13 +91,18 @@ static PyObject* plusminus(PyObject* args, double c) {
     PyErr_SetString(PyExc_TypeError, "Bad arguments !!!");
     return NULL;
   }
-
+```
+Считываем количество строк через **PyList_Size** в первой матрице **listObj1** в переменную **lengthi** и сравниваем с количеством строк во второй матрице. Если они не совпадают по размеру, это значит что сложить мы их не сможем, поэтому выдаем ошибку.
+```C
   Py_ssize_t lengthi = PyList_Size(listObj1);
   if ( PyList_Size(listObj2) != lengthi ) {
       PyErr_SetString(PyExc_ValueError, "Matrix dimentions are not equal !!!");
       return NULL;
   }
+```
+Результирующая матрица **result** будет длины **lengthi**. Мы идем циклом по строкам матрицы. Через **PyList_GetItem** выбираем i-ую строку из каждой матрицы и записываем соответственно в **tempi1** и **tempi2**. 
 
+```C
   PyObject* result = PyList_New(lengthi);  
   long i,j;
   Py_ssize_t lengthjpr = -1;
@@ -106,6 +111,9 @@ static PyObject* plusminus(PyObject* args, double c) {
     PyObject* tempi1 = PyList_GetItem(listObj1, i);
     PyObject* tempi2 = PyList_GetItem(listObj2, i);
     Py_ssize_t lengthj = PyList_Size(tempi1);
+ ```   
+ **lengthj** - длина этих строк. Выполняем примерно те же проверки, что и в предыдущей функции. Если **lengthjpr** не равен длине одной из строк матриц, то выдается ошибка с сообщением о том, какая матрица является "инвалидной".
+ ```C
     if( lengthjpr == -1 ) {
       lengthjpr = lengthj;
     }
@@ -118,7 +126,9 @@ static PyObject* plusminus(PyObject* args, double c) {
       PyErr_SetString(PyExc_TypeError, "Invalid matrix 2 !!!");
       return NULL;
     }
-
+```
+Как и в предыдущей функции, мы идем по столбцам, **tempj1** - j-ый элемент из **tempi1**, **tempj2**, соответственно, из **tempi2**, преобразовываем их в нужный формат и затем записываем в строку **row** сумму соответствующих элементов (если c = 1) или их разность (если с = -1)
+```C
     PyObject* row = PyList_New(lengthj);
     for (j = 0; j <lengthj; j++){
        PyObject* tempj1 = PyList_GetItem(tempi1, j);
@@ -132,8 +142,9 @@ static PyObject* plusminus(PyObject* args, double c) {
   
   return result;
 }
-
-
+```
+А теперь сами функции сложения и вычитания (они - **self**, так как используются в модуле). **addition** возвращает вспомогательную функцию с с = 1, то есть это сложение, а **subtraction** - с с = -1, то есть вычитание.
+```C
 static PyObject* addition(PyObject* self, PyObject* args) {
   return plusminus( args, 1 );
 }
