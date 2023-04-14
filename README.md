@@ -359,196 +359,222 @@ static PyObject* determinant(PyObject* self, PyObject* args) {
 
 
 ### ***Умножение матриц***
-
+На входе имеем две матрицы **listObj1** и **listObj2** типа **PyObject**. Как и в предыдущих функциях, выполняем проверку.
 ```C
 
 static PyObject* matrix_multiplication(PyObject* self, PyObject* args) {
-  PyObject *listObj1;
-  PyObject *listObj2;  
-  if( !PyArg_ParseTuple( args, "OO", &listObj1, &listObj2) ) {
-    PyErr_SetString(PyExc_TypeError, "Bad arguments !!!");
-    return NULL;
-  }
+PyObject *listObj1;
+PyObject *listObj2;
+if( !PyArg_ParseTuple( args, "OO", &listObj1, &listObj2) ) {
+PyErr_SetString(PyExc_TypeError, "Bad arguments !!!");
+return NULL;
+}
+```
+**lengthst** - количество столбцов в первой матрице, **lengthsr** - количество строк во второй матрице. Если они не совпадают - выдается ошибка.
+```C
+Py_ssize_t lengthst = PyList_Size(PyList_GetItem(listObj1, 0));
+Py_ssize_t lengthsr = PyList_Size(listObj2);
+if ( lengthst != lengthsr ){
+PyErr_SetString(PyExc_ValueError, "Not suitable matrixs for multiplication !!!");
+return NULL;
+}
+```
+**lengthjpr** - количество столбцов во второй матрице, **lengthi** - количество строк в первой матрице. Создаем **result** длины **lengthi**, который будем изменять по ходу алгоритма.
+```C
+Py_ssize_t lengthjpr = PyList_Size(PyList_GetItem(listObj2, 0));
+Py_ssize_t lengthi = PyList_Size(listObj1);
+PyObject* result = PyList_New(lengthi);
+long i,j,k;
+```
+Выполняем проверку: если один из столбцов второй матрицы по размеру не совпадает с размером строки первой матрицы, то вторая матрица у нас "инвалидная". И наоборот, если количество строк из второй матрицы не совпадает с размером одной из строки первой матрицы - то первая матрица "инвалидная".
+```C
+for(i = 0; i < lengthst; i++) {
+if( PyList_Size(PyList_GetItem(listObj2, i)) != lengthjpr ) {
+PyErr_SetString(PyExc_TypeError, "Invalid matrix 2 !!!");
+return NULL;
+}
+}
 
-  Py_ssize_t lengthst = PyList_Size(PyList_GetItem(listObj1, 0));
-  Py_ssize_t lengthsr = PyList_Size(listObj2);
-  if ( lengthst != lengthsr ){
-     PyErr_SetString(PyExc_ValueError, "Not suitable matrixs for multiplication !!!");
-     return NULL;
-  }  
+for(i = 0; i < lengthi; i++){
+if( PyList_Size(PyList_GetItem(listObj1, i)) != lengthst ) {
+PyErr_SetString(PyExc_TypeError, "Invalid matrix 1 !!!");
+return NULL;
+}
+```
+Создаем **row**. которая будет длины строк строк второй матрицы. Передвигаемся по j-ым элементам в цикле, для каждого вычисляя свое **sum** - новый элемент, который пойдет в **result**. i - фиксированная строка, для которой j и k будут изменяться. Мы пробегаемся по каждому k-ому элементу: в первой матрице это элементы строки (записываем как **temp1**), во второй - элементы столбца (**temp2**), который соответствуют друг другу. Преобразовываем в нужный нам тип и записываем как **elem1** и **elem2**, после чего умножаем их и прибавляем к текущему элементу **sum**. В конце итерации **sum** записываем на j-ую позицию в строку **row**, а затем полученную **row** записываем в **result**.
+```C
+PyObject* row = PyList_New(lengthjpr);
+for (j = 0; j < lengthjpr; j++){
+double sum = 0;
+for (k=0; k < lengthst; k++){
+PyObject* temp1 = PyList_GetItem(PyList_GetItem(listObj1, i), k);
+PyObject* temp2 = PyList_GetItem(PyList_GetItem(listObj2, k), j);
+double elem1 = PyFloat_AsDouble(temp1);
+double elem2 = PyFloat_AsDouble(temp2);
+sum += elem1*elem2;
+}
 
-  Py_ssize_t lengthjpr = PyList_Size(PyList_GetItem(listObj2, 0));
-  Py_ssize_t lengthi = PyList_Size(listObj1);
-  PyObject* result = PyList_New(lengthi);  
-  long i,j,k;
+PyList_SetItem(row, j, PyFloat_FromDouble(sum));
+}
 
-  for(i = 0; i < lengthst; i++) {
-    if( PyList_Size(PyList_GetItem(listObj2, i)) != lengthjpr ) {
-      PyErr_SetString(PyExc_TypeError, "Invalid matrix 2 !!!");
-      return NULL;
-    }
-  }
-    
-  for(i = 0; i < lengthi; i++){ 
-    if( PyList_Size(PyList_GetItem(listObj1, i)) != lengthst ) {
-      PyErr_SetString(PyExc_TypeError, "Invalid matrix 1 !!!");
-      return NULL;
-    }
-       
-    PyObject* row = PyList_New(lengthjpr);     
-    for (j = 0; j < lengthjpr; j++){
-       double sum = 0;     
-       for (k=0; k < lengthst; k++){
-           PyObject* temp1 = PyList_GetItem(PyList_GetItem(listObj1, i), k);
-           PyObject* temp2 = PyList_GetItem(PyList_GetItem(listObj2, k), j);
-           double elem1 = PyFloat_AsDouble(temp1);
-           double elem2 = PyFloat_AsDouble(temp2);
-           sum += elem1*elem2;
-       }
+PyList_SetItem(result, i, row);
+}
 
-       PyList_SetItem(row, j, PyFloat_FromDouble(sum));       
-    }        
-   
-    PyList_SetItem(result, i, row);       
-  }  
-  
-  return result;
+return result;
 }
 ```
 
 ### ***Обратная матрица***
-
+На входе одна матрица **listObj**. Выполняем проверку на ее тип.
 ```C
 
 static PyObject* inversion(PyObject* self, PyObject* args) {
-  PyObject *listObj; 
-  if( !PyArg_ParseTuple( args, "O", &listObj) ) {
-    PyErr_SetString(PyExc_TypeError, "Bad arguments !!!");
-    return NULL;
-  }
+PyObject *listObj;
+if( !PyArg_ParseTuple( args, "O", &listObj) ) {
+PyErr_SetString(PyExc_TypeError, "Bad arguments !!!");
+return NULL;
+}
+```
+В первой части мы высчитываем определитель, поэтому она совпадает с функцией **determinant**.
+```C
+Py_ssize_t lengthi = PyList_Size(listObj);
+Py_ssize_t lengthj = PyList_Size(PyList_GetItem(listObj, 0));
+if ( lengthi != lengthj ) {
+PyErr_SetString(PyExc_TypeError, "Not a square matrix !!!");
+return NULL;
+}
 
-  Py_ssize_t lengthi = PyList_Size(listObj);
-  Py_ssize_t lengthj = PyList_Size(PyList_GetItem(listObj, 0));
-  if ( lengthi != lengthj ) {
-     PyErr_SetString(PyExc_TypeError, "Not a square matrix !!!");
-     return NULL;
-  }
+const double EPS = 1E-9;
+double det = 1;
 
-  const double EPS = 1E-9;
-  double det = 1;
-  
-  PyObject* a = PyList_New(lengthi);
-  long i,j,k;
-  
-  for( i=0; i<lengthi; i++ ) {
-    PyObject* row = PyList_GetItem(listObj, i);
-    if( PyList_Size(row) != lengthi ) {
-      PyErr_SetString(PyExc_ValueError, "Invalid matrix !!!");
-      return NULL;
-    }
+PyObject* a = PyList_New(lengthi);
+long i,j,k;
 
-    PyObject* r = PyList_New(lengthi);
-    for( j=0; j<lengthi; j++ ) 
-      PyList_SetItem(r, j, PyList_GetItem(row, j));
+for( i=0; i<lengthi; i++ ) {
+PyObject* row = PyList_GetItem(listObj, i);
+if( PyList_Size(row) != lengthi ) {
+PyErr_SetString(PyExc_ValueError, "Invalid matrix !!!");
+return NULL;
+}
+```
+Создаем копию исходной матрицы
+```C
+PyObject* r = PyList_New(lengthi);
+for( j=0; j<lengthi; j++ )
+PyList_SetItem(r, j, PyList_GetItem(row, j));
 
-    PyList_SetItem(a, i, r);
-  }
+PyList_SetItem(a, i, r);
+}
+```
+Обратную матрицу мы ищем методом Гаусса. А метод Гаусса подразумевает приписывание справа единичной матрицы к исходной, такого же размера. Задача состоит в том, чтобы к исходную матрицу с помощью вычитания, сложения и умножения строк превратить в единичную, при этом матрица справа так же изменяется. Тогда полученная матрица и будет обратной.
+Создаем единичную матрицу **е**. Если мы на главной диагонали (то есть i == j), то элемент = 1, иначе = 0.
+```C
 
+PyObject* e = PyList_New(lengthi);
+for( i=0; i<lengthi; i++ ) {
+PyObject* r = PyList_New(lengthi);
+for( j=0; j<lengthi; j++ )
+if( i == j ) {
+PyList_SetItem(r, j, PyFloat_FromDouble(1));
+} else {
+PyList_SetItem(r, j, PyFloat_FromDouble(0));
+}
+PyList_SetItem(e, i, r);
+}
+```
+Далее идет вычисление определителя
+```C
+double temp1, temp2, temp3;
 
-  PyObject* e = PyList_New(lengthi);
-  for( i=0; i<lengthi; i++ ) {
-     PyObject* r = PyList_New(lengthi);
-     for( j=0; j<lengthi; j++ ) 
-       if( i == j ) {
-          PyList_SetItem(r, j, PyFloat_FromDouble(1));
-       } else {
-          PyList_SetItem(r, j, PyFloat_FromDouble(0));
-       }
-     PyList_SetItem(e, i, r);
-  }
+for( i=0; i<lengthi; i++ ) {
+k = i;
 
+for( j=i+1; j<lengthi; j++ ) {
+temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, j), i) );
+temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, k), i) );
+if( fabs(temp1) > fabs(temp2) ) k = j;
+}
+```
+Если на главной диагонали нулевой элемент, выдается ошибка, потому что тогда обратной матрицы при нулевой определителе не будет
+```C
+temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, k), i) );
+if( fabs(temp1) < EPS ) {
+PyErr_SetString(PyExc_ValueError, "Determinant = 0 !!!");
+return NULL;
+}
+```
+Когда мы приводим исходную матрицу к треугольному виду, матрица справа подвергается тем же преобразованиям - это единственной отличие от фукнции **determinant**
+```C
+if( i != k ) {
+det = -det;
+for( j=0; j<lengthi; j++ ) {
+temp1 = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(a, i), j));
+temp2 = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(a, k), j));
+PyList_SetItem(PyList_GetItem(a, i), j, PyFloat_FromDouble(temp2));
+PyList_SetItem(PyList_GetItem(a, k), j, PyFloat_FromDouble(temp1));
 
-  double temp1, temp2, temp3;
+temp1 = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(e, i), j));
+temp2 = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(e, k), j));
+PyList_SetItem(PyList_GetItem(e, i), j, PyFloat_FromDouble(temp2));
+PyList_SetItem(PyList_GetItem(e, k), j, PyFloat_FromDouble(temp1));
+}
+}
+```
+Вычисляем определитель
+```C
+temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), i) );
+det *= temp1;
+```
+Теперь верхнетреугольную матрицу превращаем в единичную. Всю подстроку мы делим на максимальный элемент **temp1**, то же самое выполняем для единичной матрицы, и так же как в функции **determinant** - обнуляем.
+```C
+for( j=i; j<lengthi; j++ ) {
+temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), j) );
+PyList_SetItem( PyList_GetItem(a, i), j, PyFloat_FromDouble(temp2/temp1) );
+}
 
-  for( i=0; i<lengthi; i++ ) {
-    k = i;
+for( j=0; j<lengthi; j++ ) {
+temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, i), j) );
+PyList_SetItem( PyList_GetItem(e, i), j, PyFloat_FromDouble(temp2/temp1) );
+}
 
-    for( j=i+1; j<lengthi; j++ ) {
-      temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, j), i) );
-      temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, k), i) );
-      if( fabs(temp1) > fabs(temp2) ) k = j;
-    }
+for( j=i+1; j<lengthi; j++ ) {
+temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, j), i) );
+if( fabs(temp1) > EPS ) {
+for( k=0; k<lengthi; k++ ) {
+temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), k) );
+temp3 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, j), k) );
+PyList_SetItem( PyList_GetItem(a, j), k, PyFloat_FromDouble(temp3-temp2*temp1) );
 
-    temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, k), i) );
-    if( fabs(temp1) < EPS ) {
-      PyErr_SetString(PyExc_ValueError, "Determinant = 0 !!!");
-      return NULL;
-    }
+temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, i), k) );
+temp3 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, j), k) );
+PyList_SetItem( PyList_GetItem(e, j), k, PyFloat_FromDouble(temp3-temp2*temp1) );
+}
+}
+}
+}
+```
+В результате прямого хода у нас получилась верхнетреугольная матрица и приписанная к ней измененная, а теперь мы выполняем обратный ход. Для того, чтобы верхнетреугольную превратить в единичную, мы идем с конца. Мы так же делим и вычитаем элементы, но теперь i идет в обратном порядке от **lengthi-1** до начала строки. При этом те же самые преобразования происходят для матрицы **e**. В результате получается слева единичная матрица, а справа - наша обратная. Возвращаем преобразованную **е**
+```C
+for(i = lengthi-1; i > 0; i--) {
+for(int k = 0; k < i; k++) {
+temp1 = PyFloat_AsDouble(
+PyList_GetItem(PyList_GetItem(a, k), i) );
+if (fabs(temp1) > EPS) {
+for (j = i-1; j < lengthi; j++) {
+temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), j) );
+temp3 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, k), j) );
+PyList_SetItem( PyList_GetItem(a, k), j, PyFloat_FromDouble(temp3-temp2*temp1) );
+}
 
-    if( i != k ) {
-      det = -det;
-      for( j=0; j<lengthi; j++ ) {
-        temp1 = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(a, i), j));
-	temp2 = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(a, k), j));
-        PyList_SetItem(PyList_GetItem(a, i), j, PyFloat_FromDouble(temp2));
-        PyList_SetItem(PyList_GetItem(a, k), j, PyFloat_FromDouble(temp1));
+for (int j = 0; j < lengthi; j++){
+temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, i), j) );
+temp3 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, k), j) );
+PyList_SetItem( PyList_GetItem(e, k), j, PyFloat_FromDouble(temp3-temp2*temp1) );
+}
+}
+}
+}
 
-        temp1 = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(e, i), j));
-	temp2 = PyFloat_AsDouble(PyList_GetItem(PyList_GetItem(e, k), j));
-        PyList_SetItem(PyList_GetItem(e, i), j, PyFloat_FromDouble(temp2));
-        PyList_SetItem(PyList_GetItem(e, k), j, PyFloat_FromDouble(temp1));
-      }
-    }
-
-    temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), i) );
-    det *= temp1;
-
-    for( j=i; j<lengthi; j++ ) {
-       temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), j) );
-       PyList_SetItem( PyList_GetItem(a, i), j, PyFloat_FromDouble(temp2/temp1) ); 
-    }
-
-    for( j=0; j<lengthi; j++ ) {
-       temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, i), j) );
-       PyList_SetItem( PyList_GetItem(e, i), j, PyFloat_FromDouble(temp2/temp1) ); 
-    }
-
-    for( j=i+1; j<lengthi; j++ ) {
-      temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, j), i) );
-      if( fabs(temp1) > EPS ) {
-	 for( k=0; k<lengthi; k++ ) {
-	   temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), k) );
-           temp3 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, j), k) );
-           PyList_SetItem( PyList_GetItem(a, j), k, PyFloat_FromDouble(temp3-temp2*temp1) );
-
-	   temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, i), k) );
-           temp3 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, j), k) );
-           PyList_SetItem( PyList_GetItem(e, j), k, PyFloat_FromDouble(temp3-temp2*temp1) );
-         }
-      }
-    }
-  }
-
-  for(i = lengthi-1; i > 0; i--) {
-     for(int k = 0; k < i; k++) {
-        temp1 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, k), i) );
-        if (fabs(temp1) > EPS) {
-              for (j = i-1; j < lengthi; j++) {
-	         temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, i), j) );
-                 temp3 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(a, k), j) );
-                 PyList_SetItem( PyList_GetItem(a, k), j, PyFloat_FromDouble(temp3-temp2*temp1) );
-              }
-
-              for (int j = 0; j < lengthi; j++){
-	         temp2 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, i), j) );
-                 temp3 = PyFloat_AsDouble( PyList_GetItem(PyList_GetItem(e, k), j) );
-                 PyList_SetItem( PyList_GetItem(e, k), j, PyFloat_FromDouble(temp3-temp2*temp1) );
-              }
-        }
-     }
-  }
-
-
-   return e;
+return e;
 }
 ```
