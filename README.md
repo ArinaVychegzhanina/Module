@@ -214,12 +214,17 @@ static PyObject* transposition(PyObject* self, PyObject* args) {
     PyErr_SetString(PyExc_TypeError, "Bad arguments !!!");
     return NULL;
   }
-
+```
+**lengthi** - количество строк в матрице. **result** мы создаем от количества столбцов в этой матрице, то есть берем нулевую строку и вычисляем ее длину. 
+```C
   Py_ssize_t lengthi = PyList_Size(listObj);
   PyObject* result = PyList_New(PyList_Size(PyList_GetItem(listObj, 0)));  
   long i,j;
   Py_ssize_t lengthjpr = -1;
+```
 
+Передвигаемся до конца столбца этой матрицы. **row** - промежуточнная строка новой транспонированной матрицы, причем она будет длины количества строк исходной матрицы. С помозью j передвигаемся по количеству строк этой матрицы. В **tempj** записываем j-ую строку, измеряем ее в длину и выполняем проверку. 
+```C
   for(i = 0; i < PyList_Size(result); i++){   
     PyObject* row = PyList_New(lengthi);
     for (j = 0; j <lengthi; j++){
@@ -232,6 +237,9 @@ static PyObject* transposition(PyObject* self, PyObject* args) {
           PyErr_SetString(PyExc_TypeError, "Invalid matrix !!!");
           return NULL;
        }
+```
+Достаем сначала j-ую строку, а из нее i-ый столбец и записываем в **temp**, после чего преобразовываем ее в double и записываем на j-ое место в нашу строку **row**. То есть у нас снова i - столбцы, а j - строки. Записываем полученное **row** в **result**
+```C    
        PyObject* temp = PyList_GetItem(PyList_GetItem(listObj, j), i);
        double elem = PyFloat_AsDouble(temp);
        PyList_SetItem(row, j, PyFloat_FromDouble(elem)); 
