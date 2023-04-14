@@ -155,7 +155,7 @@ static PyObject* subtraction(PyObject* self, PyObject* args) {
 ```
 
 ### ***Векторное умножение***
-
+Здесь мы умножаем вектор на матрицу, причем **vectorObj** будет типа **PyObject**
 ```C
 static PyObject* vector_multiplication(PyObject* self, PyObject* args) {
   PyObject* vectorObj;
@@ -164,7 +164,9 @@ static PyObject* vector_multiplication(PyObject* self, PyObject* args) {
     PyErr_SetString(PyExc_TypeError, "Bad arguments !!!");
     return NULL;
   }
-
+```  
+  **lengthi** - длина вектора, **lengthjpr** - длина строки матрицы, которую мы получаем следующим образом: вызываем сначала **PyList_GetItem** и с ее помощью выбираем нулевой элемент матрицы, то есть строку, и смотрим ее длину с помощью **PyList_Size** (то есть количество столбцов). Вектор умножается слева на матрицу, поэтому нам нужно, чтобы количество элементов из него совпадало с колиечством стобцов в матрице. Создаем **result**, который здесь будет вектором, так как при умножении вектора на матрицу именно он и получается. Выполняем проверку на размеры: если они не совпадают, "инвалидным" будет вектор либо матрица.
+```C
   Py_ssize_t lengthi = PyList_Size(vectorObj);
   Py_ssize_t lengthjpr = PyList_Size(PyList_GetItem(listObj, 0));   
   PyObject* result = PyList_New(lengthjpr);  
@@ -174,7 +176,10 @@ static PyObject* vector_multiplication(PyObject* self, PyObject* args) {
       PyErr_SetString(PyExc_TypeError, "Invalid matrix or vector !!!");
       return NULL;
   }   
-  
+ ```
+ Мы передвигаемся по столбцам матрицы. **sum** - элемент, который пойдет в результирующий вектор, представляет собой сумму всех j-ых произведений i-ых элементов из вектора и соответствующего элемента из i-го столбца матрицы. Как в предыдущей функции вычисляли размер нулевой строки, так здесь вычисляем размер j-ой строки и выполняем проверку. 
+ 
+ ```C 
   for(i = 0; i < lengthjpr; i++){
     double sum = 0;
     for (j = 0; j < lengthi; j++){
@@ -183,7 +188,9 @@ static PyObject* vector_multiplication(PyObject* self, PyObject* args) {
           PyErr_SetString(PyExc_TypeError, "Invalid matrix !!!");
           return NULL;
        }      
- 
+ ```
+ Берем j-ый элемент из вектора и записываем в **elemv**, а в матрице выбираем j-ый элемент из i-ого столбца и записываем в **tempi**, после чего преобразовываем в нужный тип в **elemm**. В **sum** мы складываем все соответствующие **elemv** и **elemm**. Получившийся **sum** записываем в **result**
+  ```C 
        double elemv = PyFloat_AsDouble(PyList_GetItem(vectorObj, j));
        PyObject* tempi = PyList_GetItem(PyList_GetItem(listObj, j), i);
        double elemm = PyFloat_AsDouble(tempi);
